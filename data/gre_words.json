@@ -1,0 +1,67 @@
+[
+  {
+    "word": "Obfuscate",
+    "pos": "verb",
+    "ipa": "/ˈɒbfʌskeɪt/",
+    "pronunciation": "OB-fuh-skayt",
+    "meaning": "To make something unclear or difficult to understand.",
+    "simple_explanation": "When someone purposely confuses you with complicated words or ideas to hide the truth.",
+    "example": "The politician tried to obfuscate the real reason for the policy change with technical jargon.",
+    "mnemonic": "Think of a magician creating a cloud of smoke (fus = fuse/fog) to hide what's really happening.",
+    "synonyms": ["confuse", "obscure", "muddle", "cloud"],
+    "antonyms": ["clarify", "illuminate", "explain"],
+    "difficulty": "hard"
+  },
+  {
+    "word": "Ephemeral",
+    "pos": "adjective",
+    "ipa": "/ɪˈfem.ər.əl/",
+    "pronunciation": "ih-FEM-er-ul",
+    "meaning": "Lasting for a very short time; transitory.",
+    "simple_explanation": "Something that comes and goes quickly, like a soap bubble that pops almost immediately.",
+    "example": "The morning frost was ephemeral, disappearing as soon as the sun rose.",
+    "mnemonic": "Think 'a few hours' — ephemeral things don't last long at all.",
+    "synonyms": ["fleeting", "transient", "momentary", "brief"],
+    "antonyms": ["permanent", "enduring", "eternal"],
+    "difficulty": "medium"
+  },
+  {
+    "word": "Tenacious",
+    "pos": "adjective",
+    "ipa": "/tɪˈneɪ.ʃəs/",
+    "pronunciation": "teh-NAY-shus",
+    "meaning": "Persistent and determined; not giving up easily.",
+    "simple_explanation": "Like a dog that won't let go of a toy — someone tenacious just keeps going no matter what.",
+    "example": "Despite numerous setbacks, her tenacious pursuit of excellence eventually led to success.",
+    "mnemonic": "TEN-acious: imagine someone holding on for 10 more rounds when everyone else has quit.",
+    "synonyms": ["persistent", "determined", "resolute", "dogged"],
+    "antonyms": ["irresolute", "weak", "yielding"],
+    "difficulty": "easy"
+  },
+  {
+    "word": "Loquacious",
+    "pos": "adjective",
+    "ipa": "/ləʊˈkweɪ.ʃəs/",
+    "pronunciation": "loh-KWAY-shus",
+    "meaning": "Tending to talk a great deal; overly talkative.",
+    "simple_explanation": "That one friend who just can't stop talking — loquacious people love to talk and talk.",
+    "example": "Our loquacious tour guide kept the group entertained with endless stories throughout the trip.",
+    "mnemonic": "LOQUA sounds like 'talk-wa' — a loquacious person is always talking.",
+    "synonyms": ["talkative", "garrulous", "verbose", "chatty"],
+    "antonyms": ["taciturn", "reticent", "quiet"],
+    "difficulty": "easy"
+  },
+  {
+    "word": "Perspicacious",
+    "pos": "adjective",
+    "ipa": "/ˌpɜː.spɪˈkeɪ.ʃəs/",
+    "pronunciation": "per-spih-KAY-shus",
+    "meaning": "Having a ready insight; shrewd and having a clear understanding.",
+    "simple_explanation": "Someone who is perspicacious can see through complicated situations quickly, like a detective who spots clues others miss.",
+    "example": "The perspicacious investor identified the startup's potential long before it became profitable.",
+    "mnemonic": "Per-SPEC-acious: think of someone with perfect SPECS (glasses) who sees everything clearly.",
+    "synonyms": ["shrewd", "astute", "discerning", "perceptive"],
+    "antonyms": ["obtuse", "unperceptive", "dull"],
+    "difficulty": "hard"
+  }
+]

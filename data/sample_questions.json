@@ -1,0 +1,31 @@
+{
+  "part1": {
+    "topic": "Daily Life & Personal Background",
+    "questions": [
+      "Tell me about yourself.",
+      "What do you do — are you working or studying?",
+      "Describe your hometown. What do you like about it?",
+      "How do you usually spend your weekends?",
+      "Do you enjoy reading? What kind of books do you prefer?"
+    ]
+  },
+  "part2": {
+    "topic": "A Memorable Journey",
+    "questions": [
+      "Describe a memorable journey you have taken. You should say:",
+      "Where you went",
+      "Who you went with",
+      "What you did during the journey",
+      "And explain why it was so memorable to you."
+    ]
+  },
+  "part3": {
+    "topic": "Travel & Modern Life",
+    "questions": [
+      "Why do people travel to other countries?",
+      "How has modern technology changed the way people travel?",
+      "Do you think tourism has a positive or negative impact on local cultures?",
+      "Some people prefer to travel alone. What are the advantages of solo travel?"
+    ]
+  }
+}

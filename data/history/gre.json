@@ -1,0 +1,32 @@
+[
+  {
+    "timestamp": "2026-06-20T18:33:30.266177",
+    "word": "Ephemeral",
+    "correct": true
+  },
+  {
+    "timestamp": "2026-06-20T18:33:35.269554",
+    "word": "Ephemeral",
+    "correct": false
+  },
+  {
+    "timestamp": "2026-06-20T18:33:42.537783",
+    "word": "Ephemeral",
+    "correct": true
+  },
+  {
+    "timestamp": "2026-06-20T18:33:57.037760",
+    "word": "Mitigate",
+    "correct": true
+  },
+  {
+    "timestamp": "2026-06-21T13:54:13.153917",
+    "word": "Perspicacious",
+    "correct": false
+  },
+  {
+    "timestamp": "2026-06-21T15:48:52.702069",
+    "word": "perspicacious",
+    "correct": false
+  }
+]
