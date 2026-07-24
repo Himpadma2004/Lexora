@@ -20,7 +20,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Module cards ──────────────────────────────────────────────────────────────
-col1, col2 = st.columns(2, gap="large")
+col1, col2, col3 = st.columns(3, gap="large")
 
 with col1:
     st.markdown("""
@@ -52,17 +52,33 @@ with col2:
     if st.button("Start Vocabulary Practice →", key="go_gre", use_container_width=True, type="primary"):
         st.switch_page("ui/pages/gre.py")
 
+with col3:
+    st.markdown("""
+<div class="module-card">
+  <div class="icon">📝</div>
+  <h3>Practice Mode</h3>
+  <p>
+    Upload PDFs, scans, or images. Lexora cleans the OCR text, extracts MCQs,
+    and gives you a timed practice session with pause and calculator tools.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    if st.button("Start Practice Mode →", key="go_practice", use_container_width=True, type="primary"):
+        st.switch_page("ui/pages/practice.py")
+
 # ── Feature strip ─────────────────────────────────────────────────────────────
 st.markdown("<hr style='margin:36px 0 28px;border-color:#E2E8F0;'>", unsafe_allow_html=True)
 
-f1, f2, f3, f4 = st.columns(4)
+f1, f2, f3, f4, f5 = st.columns(5)
 features = [
     ("🤖", "AI Examiner", "Powered by Google Gemini"),
     ("📊", "Band Scores", "Official IELTS 0–9 scale"),
     ("🧠", "Smart Mnemonics", "Remember words faster"),
-    ("✅", "Instant Quiz", "Test what you've learnt"),
+  ("📝", "OCR Practice", "Upload PDFs, scans, or camera captures"),
+  ("✅", "Instant Quiz", "Test what you've learnt"),
 ]
-for col, (icon, title, desc) in zip([f1, f2, f3, f4], features):
+for col, (icon, title, desc) in zip([f1, f2, f3, f4, f5], features):
     with col:
         st.markdown(f"""
 <div style="text-align:center;padding:16px 8px;">

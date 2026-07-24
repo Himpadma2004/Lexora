@@ -11,6 +11,7 @@ built with Python, Streamlit, and Google Gemini.
 |--------|-------------|
 | 🎤 IELTS Speaking Coach | Practice Parts 1, 2 & 3. Get band scores, strengths, weaknesses & tips. |
 | 📖 GRE Vocabulary Coach | Learn 5 new GRE words daily. Quiz yourself with AI-generated MCQs. |
+| 📝 Practice Mode | Upload PDFs, images, or camera captures. OCR them, clean the text, and generate GRE-style MCQs with timers. |
 
 ---
 
@@ -24,15 +25,18 @@ cd lexora
 pip install -r requirements.txt
 ```
 
-### 2. Add your Gemini API key
+### 2. Configure the AI backend
 
-Create `.streamlit/secrets.toml`:
+Practice Mode works best with a local OpenAI-compatible model server such as LM Studio.
 
-```toml
-GEMINI_API_KEY = "your-key-here"
-```
+Optional environment variables:
 
-Get a free API key at [Google AI Studio](https://aistudio.google.com/).
+- `LMSTUDIO_HOST` — local OpenAI-compatible endpoint, default `http://127.0.0.1:1234/v1`
+- `GROQ_API_KEY` — optional Groq backend key
+- `GROQ_BASE_URL` — optional Groq-compatible base URL
+- `GROQ_MODEL` — optional Groq model name
+
+If you want to use Gemini for the existing IELTS module, create `.streamlit/secrets.toml` with your `GEMINI_API_KEY`.
 
 ### 3. Run
 
@@ -53,14 +57,16 @@ lexora/
 │   ├── sample_questions.json # Fallback IELTS questions
 │   └── history/              # Auto-created — session history (JSON)
 ├── services/
-│   ├── ai.py                 # All Gemini API calls
+│   ├── ai.py                 # AI calls for IELTS, GRE, and Practice Mode
+│   ├── ocr.py                # PDF/image OCR and cleanup helpers
 │   └── db.py                 # JSON file-based history persistence
 ├── ui/
 │   ├── components.py         # CSS injection + shared HTML components
 │   └── pages/
 │       ├── home.py           # Dashboard / landing page
 │       ├── ielts.py          # IELTS Speaking module
-│       └── gre.py            # GRE Vocabulary module
+│       ├── gre.py            # GRE Vocabulary module
+│       └── practice.py       # OCR → cleanup → MCQ practice pipeline
 ├── app.py                    # Entry point + st.navigation wiring
 └── requirements.txt
 ```
@@ -70,8 +76,9 @@ lexora/
 ## Tech Stack
 
 - **Streamlit** ≥ 1.36 — UI & multi-page navigation
+- **PyMuPDF + EasyOCR** — PDF and image text extraction
+- **OpenAI-compatible local models** — OCR cleanup and practice-set generation
 - **Google Gemini 2.5 Flash** — AI question generation & evaluation
-- **google-generativeai** — Gemini Python SDK
 - **JSON files** — Lightweight local history storage
 
 ---

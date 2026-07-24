@@ -50,6 +50,7 @@ MAX_ATTEMPTS  = 3            # retries before falling back to local data
 
 _client: Optional[OpenAI] = None
 _whisper_model: Optional[WhisperModel] = None
+_compat_client_cache: dict[tuple[str, str], OpenAI] = {}
 
 
 def _get_client() -> OpenAI:
@@ -67,6 +68,34 @@ def _get_whisper() -> WhisperModel:
     if _whisper_model is None:
         _whisper_model = WhisperModel(WHISPER_SIZE, device="auto", compute_type="auto")
     return _whisper_model
+
+
+def _get_compat_client(base_url: str, api_key: str) -> OpenAI:
+    """Return a cached OpenAI-compatible client for local or hosted LLMs."""
+    key = (base_url, api_key)
+    if key not in _compat_client_cache:
+        _compat_client_cache[key] = OpenAI(base_url=base_url, api_key=api_key)
+    return _compat_client_cache[key]
+
+
+def _resolve_practice_backend(provider: str = "local") -> tuple[OpenAI, str]:
+    """
+    Resolve the model backend for practice-mode OCR cleanup / quiz generation.
+
+    Supported providers:
+      - local / offline / lmstudio → LM Studio local server
+      - groq → Groq OpenAI-compatible API, if GROQ_API_KEY is configured
+    """
+    provider = (provider or "local").strip().lower()
+
+    if provider == "groq":
+        api_key = os.getenv("GROQ_API_KEY", "").strip()
+        if api_key:
+            base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+            model = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+            return _get_compat_client(base_url, api_key), model
+
+    return _get_client(), TEXT_MODEL
 
 
 # ── JSON Schemas (constrains LM Studio's output shape) ────────────────────────
@@ -137,6 +166,46 @@ QUIZ_SCHEMA = {
     "required": ["question", "options", "correct_index", "explanation"],
 }
 
+OCR_CLEANUP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "clean_text": {"type": "string"},
+        "summary": {"type": "string"},
+        "repair_notes": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["clean_text", "summary", "repair_notes"],
+}
+
+PRACTICE_ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "question": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "correct_index": {"type": "integer"},
+        "explanation": {"type": "string"},
+        "difficulty": {"type": "string", "enum": ["easy", "medium", "hard"]},
+        "source_excerpt": {"type": "string"},
+    },
+    "required": [
+        "question",
+        "options",
+        "correct_index",
+        "explanation",
+        "difficulty",
+        "source_excerpt",
+    ],
+}
+
+PRACTICE_SET_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "document_title": {"type": "string"},
+        "summary": {"type": "string"},
+        "questions": {"type": "array", "items": PRACTICE_ITEM_SCHEMA},
+    },
+    "required": ["document_title", "summary", "questions"],
+}
+
 
 # ── Core call + retry helper ───────────────────────────────────────────────────
 
@@ -149,9 +218,16 @@ def _strip_think_tags(raw: str) -> str:
     return re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
 
 
-def _call_structured(prompt: str, schema: dict, schema_name: str, model: str, temperature: float = 0.4) -> dict:
+def _call_structured(
+    prompt: str,
+    schema: dict,
+    schema_name: str,
+    model: str,
+    temperature: float = 0.4,
+    client: Optional[OpenAI] = None,
+) -> dict:
     """Single call to LM Studio with schema-constrained JSON output on the given model."""
-    client = _get_client()
+    client = client or _get_client()
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -191,6 +267,44 @@ def _generate_with_retry(prompt: str, schema: dict, schema_name: str, validator,
         )
 
     return last_result  # best-effort fallback; caller decides if it's usable
+
+
+def _generate_with_retry_and_client(
+    prompt: str,
+    schema: dict,
+    schema_name: str,
+    validator,
+    model: str,
+    client: OpenAI,
+    temperature: float = 0.4,
+):
+    """Same retry wrapper as _generate_with_retry, but with a caller-provided client."""
+    last_result = None
+    current_prompt = prompt
+
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            result = _call_structured(
+                current_prompt,
+                schema,
+                schema_name,
+                model,
+                temperature,
+                client=client,
+            )
+            if validator(result):
+                return result
+            last_result = result
+        except Exception:
+            pass
+
+        current_prompt = prompt + (
+            "\n\nIMPORTANT: Your previous attempt was incomplete, malformed, "
+            "or broke the rules above. Re-read every requirement carefully and "
+            "make sure ALL fields are present, non-empty, and follow the exact counts specified."
+        )
+
+    return last_result
 
 
 # ── Validators (the "stronger rules" layer) ───────────────────────────────────
@@ -263,6 +377,44 @@ def _valid_quiz(q: dict) -> bool:
     if not isinstance(idx, int) or not (0 <= idx <= 3):
         return False
     return True
+
+
+def _valid_ocr_cleanup(r: dict) -> bool:
+    return (
+        isinstance(r, dict)
+        and isinstance(r.get("clean_text"), str)
+        and len(r["clean_text"].strip()) > 10
+        and isinstance(r.get("summary"), str)
+        and isinstance(r.get("repair_notes"), list)
+    )
+
+
+def _valid_practice_item(item: dict) -> bool:
+    if not isinstance(item, dict):
+        return False
+    required = ["question", "options", "correct_index", "explanation", "difficulty", "source_excerpt"]
+    if not all(item.get(key) for key in required):
+        return False
+    options = item.get("options")
+    if not isinstance(options, list) or len(options) != 4:
+        return False
+    if len({str(opt).strip().lower() for opt in options}) != 4:
+        return False
+    if item.get("difficulty") not in {"easy", "medium", "hard"}:
+        return False
+    correct_index = item.get("correct_index")
+    return isinstance(correct_index, int) and 0 <= correct_index <= 3
+
+
+def _valid_practice_envelope(r: dict, expected_min: int = 1) -> bool:
+    return (
+        isinstance(r, dict)
+        and isinstance(r.get("document_title"), str)
+        and isinstance(r.get("summary"), str)
+        and isinstance(r.get("questions"), list)
+        and len(r["questions"]) >= expected_min
+        and all(_valid_practice_item(item) for item in r["questions"])
+    )
 
 
 # ── IELTS Speaking (uses TEXT_MODEL) ──────────────────────────────────────────
@@ -452,3 +604,171 @@ test-taker who only partially knows the word, then finalize your answer.
         "correct_index": 0,
         "explanation": f"'{word}' means: {meaning}",
     }
+
+
+def clean_ocr_text(raw_text: str, provider: str = "local") -> dict:
+    """
+    Clean OCR text by fixing spacing, punctuation, broken words, and obvious
+    spelling noise while preserving the original meaning as closely as possible.
+
+    Returns a dict with keys: clean_text, summary, repair_notes.
+    """
+    normalized = re.sub(r"\s+", " ", (raw_text or "")).strip()
+    if not normalized:
+        return {
+            "clean_text": "",
+            "summary": "No OCR text was provided.",
+            "repair_notes": ["Upload a PDF or image with readable text."],
+        }
+
+    client, model = _resolve_practice_backend(provider)
+    prompt = f"""You are cleaning noisy OCR output from PDFs and images.
+
+Goal:
+- Repair line breaks, punctuation, spacing, broken words, and obvious spelling errors.
+- Preserve the original meaning and question order.
+- Do not invent facts, answer keys, or content that is not present.
+- Keep tables, numbered items, and question numbering if they exist.
+
+OCR text:
+{normalized[:12000]}
+
+Return a clean, readable version plus a short summary and 3-7 bullet repair notes.
+"""
+
+    result = _generate_with_retry_and_client(
+        prompt,
+        OCR_CLEANUP_SCHEMA,
+        "ocr_cleanup",
+        _valid_ocr_cleanup,
+        model=model,
+        client=client,
+        temperature=0.2,
+    )
+
+    if result and _valid_ocr_cleanup(result):
+        return result
+
+    fallback_text = re.sub(r"[ \t]+", " ", normalized)
+    fallback_text = re.sub(r"\n{3,}", "\n\n", fallback_text)
+    return {
+        "clean_text": fallback_text,
+        "summary": "OCR cleanup completed with a lightweight local fallback.",
+        "repair_notes": [
+            "Whitespace was normalized.",
+            "Use a sharper scan or higher-resolution image for better results.",
+        ],
+    }
+
+
+def _heuristic_practice_set(clean_text: str, max_questions: int | None, document_name: str) -> dict:
+    """Best-effort fallback when the model is unavailable or returns invalid JSON."""
+    lines = [line.strip() for line in clean_text.splitlines() if line.strip()]
+    if not lines:
+        return {
+            "document_title": document_name,
+            "summary": "No readable question text could be extracted.",
+            "questions": [],
+        }
+
+    candidates = [
+        line for line in lines
+        if "?" in line or re.match(r"^\d+[\).\-\s]", line)
+    ]
+    if not candidates:
+        candidates = lines
+
+    items = []
+    difficulty_cycle = ["easy", "medium", "hard"]
+    selected_candidates = candidates if max_questions is None else candidates[:max_questions]
+    for idx, line in enumerate(selected_candidates):
+        stripped = re.sub(r"^\d+[\).\-\s]+", "", line).strip()
+        snippet = stripped[:140] if stripped else line[:140]
+        difficulty = difficulty_cycle[idx % 3]
+        question = snippet if snippet.endswith("?") else f"Which option best reflects the meaning of this source text?\n\n{snippet}"
+        correct = f"A faithful interpretation of: {snippet[:60]}"
+        items.append({
+            "question": question,
+            "options": [
+                correct,
+                "A loosely related idea",
+                "An opposite interpretation",
+                "An unrelated distractor",
+            ],
+            "correct_index": 0,
+            "explanation": "This fallback keeps the source meaning intact while still giving a valid MCQ shell.",
+            "difficulty": difficulty,
+            "source_excerpt": snippet,
+        })
+
+    return {
+        "document_title": document_name,
+        "summary": "A fallback quiz was generated because the LLM output was unavailable or invalid.",
+        "questions": items,
+    }
+
+
+def generate_practice_set_from_text(
+    raw_text: str,
+    provider: str = "local",
+    max_questions: int | None = None,
+    document_name: str = "Uploaded Practice Set",
+) -> dict:
+    """
+    Convert cleaned OCR text into a GRE-style MCQ practice set.
+
+    This is the core practice pipeline used by the new Practice page.
+    """
+    cleaned = clean_ocr_text(raw_text, provider=provider)
+    clean_text = cleaned.get("clean_text", "")
+    if not clean_text.strip():
+        return {
+            "document_title": document_name,
+            "summary": cleaned.get("summary", "No readable text was found."),
+            "repair_notes": cleaned.get("repair_notes", []),
+            "clean_text": "",
+            "questions": [],
+        }
+
+    client, model = _resolve_practice_backend(provider)
+    prompt = f"""You are converting OCR-cleaned study material into a GRE-style practice set.
+
+Document title: {document_name}
+
+Rules:
+1. Extract every distinct MCQ item in the order they appear. Do not stop early unless the source itself ends.
+2. If the source already contains a question and answer options, repair OCR noise and preserve the intended meaning.
+3. If the source contains a question without options, create exactly 4 plausible options.
+4. If the source text is a passage or notes, turn the most test-worthy details into MCQs.
+5. Use difficulty labels: easy, medium, hard.
+6. Keep explanations short, precise, and grounded in the source text.
+7. Do not invent unsupported facts.
+
+Cleaned source text:
+{clean_text[:14000]}
+
+Return a JSON object with:
+- document_title
+- summary
+- questions (each item must include question, options[4], correct_index, explanation, difficulty, source_excerpt)
+"""
+
+    result = _generate_with_retry_and_client(
+        prompt,
+        PRACTICE_SET_SCHEMA,
+        "practice_set",
+        lambda r: _valid_practice_envelope(r, expected_min=1),
+        model=model,
+        client=client,
+        temperature=0.25,
+    )
+
+    if result and _valid_practice_envelope(result, expected_min=1):
+        result["clean_text"] = clean_text
+        result["repair_notes"] = cleaned.get("repair_notes", [])
+        return result
+
+    fallback = _heuristic_practice_set(clean_text, max_questions, document_name)
+    fallback["clean_text"] = clean_text
+    fallback["repair_notes"] = cleaned.get("repair_notes", [])
+    return fallback

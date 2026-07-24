@@ -5,6 +5,9 @@ Run with: streamlit run app.py
 """
 
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Page config (must be the very first Streamlit call) ───────────────────────
 
@@ -23,6 +26,7 @@ pages = [
     st.Page("ui/pages/home.py",  title="Home",            icon="🏠", default=True),
     st.Page("ui/pages/ielts.py", title="IELTS Speaking",  icon="🎤"),
     st.Page("ui/pages/gre.py",   title="GRE Vocabulary",  icon="📖"),
+    st.Page("ui/pages/practice.py", title="Practice Mode", icon="📝"),
 ]
 
 pg = st.navigation(pages, position="sidebar", expanded=True)
